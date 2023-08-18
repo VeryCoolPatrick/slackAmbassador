@@ -39,8 +39,8 @@ def messageEvent(body, logger):
     teamsMessage.send()
 
 @app.route("/")
-def teamsMessage(request):
-    logging.log(request)
+def teamsMessage():
+    logging.log(Flask.request)
 
 if __name__ == "__main__":
     SocketModeHandler(slackApp, os.environ["SLACK_SOCKET_TOKEN"]).connect()
