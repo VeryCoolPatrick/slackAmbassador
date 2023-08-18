@@ -11,6 +11,6 @@
         }
     },
 	"scripts": {
-		"start": "python server.py"
+		"start": "python3 server.py"
 	}
 }
