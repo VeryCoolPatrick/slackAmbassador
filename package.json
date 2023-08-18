@@ -10,7 +10,7 @@
             "emoji-data-python": "https://github.com/VeryCoolPatrick/emoji-data-python"
         }
     },
-	"scripts": {
+    "scripts": {
 		"start": "python3 server.py"
 	}
 }

@@ -1,5 +1,7 @@
 import os
+import logging
 from slackFunctions import *
+from flask import Flask, Response
 from config import *
 from dotenv import load_dotenv
 import slack_bolt
@@ -8,6 +10,7 @@ import pymsteams
 
 load_dotenv()
 
+app = Flask("__name__")
 slackApp = slack_bolt.App(token = os.environ.get("SLACK_BOT_TOKEN"), signing_secret = os.environ.get("SLACK_SIGNING_SECRET"))
 channelId = getSlackChannelId(slackApp.client, SLACK_CHANNEL)
 
@@ -35,5 +38,10 @@ def messageEvent(body, logger):
     teamsMessage.addSection(messageToSection(slackApp.client, message, os.environ.get("SLACK_BOT_TOKEN")))
     teamsMessage.send()
 
+@app.route("/")
+def teamsMessage(request):
+    logging.log(request)
+
 if __name__ == "__main__":
-    SocketModeHandler(slackApp, os.environ["SLACK_SOCKET_TOKEN"]).start()
+    SocketModeHandler(slackApp, os.environ["SLACK_SOCKET_TOKEN"]).connect()
+    app.run(port = 3000)
