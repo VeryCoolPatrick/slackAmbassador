@@ -7,7 +7,7 @@
             "pymsteams": "latest",
             "slackdown": "latest",
             "python-dotenv": "latest",
-            "emoji-data-python": "https://github.com/VeryCoolPatrick/emoji-data-python",
+            "emoji-data-python": "https://github.com/VeryCoolPatrick/emoji-data-python"
         }
     },
 	"scripts": {
