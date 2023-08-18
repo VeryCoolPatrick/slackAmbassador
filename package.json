@@ -1,0 +1,16 @@
+{
+    "name": "slackAmbassador",
+    "dependencies": {
+        "python-modules": {
+            "slack_bolt": "latest",
+            "slack_sdk": "latest",
+            "pymsteams": "latest",
+            "slackdown": "latest",
+            "python-dotenv": "latest",
+            "emoji-data-python": "https://github.com/VeryCoolPatrick/emoji-data-python",
+        }
+    },
+	"scripts": {
+		"start": "python server.py"
+	}
+}
