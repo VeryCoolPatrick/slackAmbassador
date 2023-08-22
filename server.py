@@ -1,12 +1,13 @@
 import os
 import logging
 from slackFunctions import *
-from flask import Flask, Response
+from flask import Flask, request, Response
 from config import *
 from dotenv import load_dotenv
 import slack_bolt
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 import pymsteams
+import msteams_verify
 
 load_dotenv()
 
@@ -38,9 +39,18 @@ def messageEvent(body, logger):
     teamsMessage.addSection(messageToSection(slackApp.client, message, os.environ.get("SLACK_BOT_TOKEN")))
     teamsMessage.send()
 
-@app.route("/")
+@app.route("/webhook", methods = ["POST"])
+@msteams_verify.verify_hmac(os.environ.get("TEAMS_OUTGOING_TOKEN"))
 def teamsMessage():
-    logging.log(Flask.request)
+    logging.log(request)
+    return {'type' : 'message', 'text' : 'This is a reply'}
+
+@app.route("/webhook", methods = ["POST"])
+@msteams_verify.verify_hmac(os.environ.get("TEAMS_OUTGOING_TOKEN"))
+def teamsMessage():
+    logging.log(request)
+    return {'type' : 'message', 'text' : 'This is a reply'}
+
 
 if __name__ == "__main__":
     SocketModeHandler(slackApp, os.environ["SLACK_SOCKET_TOKEN"]).connect()

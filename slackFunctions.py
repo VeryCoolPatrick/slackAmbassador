@@ -1,5 +1,6 @@
 import time
 import datetime
+import logging
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 import pymsteams
@@ -16,7 +17,7 @@ def getSlackChannelId(slackClient: WebClient, channelName: str):
                     return channel["id"]
         raise SlackApiError("Channel not found!")
     except SlackApiError as e:
-        print(f"Error: {e}")
+        logging.exception(e)
 
 # Returns a list of slack messages from newest to oldest. Does not include replies.
 def getActiveThreads(slackClient: WebClient, channelId: str, oldestInhours: int = 24):
@@ -33,7 +34,7 @@ def getActiveThreads(slackClient: WebClient, channelId: str, oldestInhours: int 
             threadList.append(slackClient.conversations_replies(channel = channelId, ts = ts)["messages"])
         return threadList
     except SlackApiError as e:
-        print(f"Error: {e}")
+        logging.exception(e)
 
 # Return the username displayed on slack profile
 def getUsername(user):
@@ -45,7 +46,7 @@ def getUsername(user):
 def imageToHtml(image, botToken: str):
     response = requests.get(image["thumb_80"], headers = {"Authorization" : f"Bearer {botToken}"})
     if response.status_code != 200 or "image" not in response.headers.get("content-type"):
-        print("image error")
+        logging.error("image error")
         return None
     encodedImage = base64.b64encode(response.content)
     return f'<a href = "{image["url_private"]}"><img src="data:{response.headers.get("content-type")};base64, {encodedImage.decode()}" alt="{image["name"]}" /><a/>'
