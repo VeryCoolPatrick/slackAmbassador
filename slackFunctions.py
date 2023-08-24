@@ -8,6 +8,7 @@ import slackdown
 import emoji_data_python
 import requests
 import base64
+import re
 
 def getSlackChannelId(slackClient: WebClient, channelName: str):
     try:
@@ -42,6 +43,18 @@ def getUsername(user):
         return user["profile"]["display_name"]
     return user["name"]
 
+# Converts slack mentions using user ID to bold HTML display name
+def mentionToName(message: str, slackClient):
+    mentionPatern = r"<@(\w+)>"
+    mentionMatches = re.findall(mentionPatern, message)
+    for mention in mentionMatches:
+        user = slackClient.users_info(user = mention[2:-1])["user"]
+        if user["is_bot"]:
+            replacementText = ""
+        else:
+            replacementText = f"<b>{getUsername(user)}</b>"
+        message = message.replace(mention, replacementText)
+
 # Encodes the image in base 64 and returns image tags in link tags
 def imageToHtml(image, botToken: str):
     response = requests.get(image["thumb_80"], headers = {"Authorization" : f"Bearer {botToken}"})
@@ -57,7 +70,8 @@ def messageToSection(slackClient, message, botToken: str):
     user = slackClient.users_info(user = message["user"])["user"]
     messageSection.activityTitle(getUsername(user))
     messageSection.activityImage(user["profile"]["image_192"])
-    sectionText = emoji_data_python.replace_colons(message['text']) # Emoticons must be converted before HTML
+    sectionText = mentionToName(message = message['text'], slackClient = slackClient) # Mentions and emoticons must be converted before HTML
+    sectionText = emoji_data_python.replace_colons(sectionText) 
     sectionText = slackdown.render(sectionText) # Convert markdown to HTML
     if "files" in message:
             for file in message["files"]:

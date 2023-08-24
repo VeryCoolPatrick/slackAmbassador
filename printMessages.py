@@ -15,12 +15,13 @@ load_dotenv()
 
 slackApp = slack_bolt.App(token = os.environ.get("SLACK_BOT_TOKEN"), signing_secret = os.environ.get("SLACK_SIGNING_SECRET"))
 minTime = datetime.datetime.now() 
-minTime -= datetime.timedelta(hours = 72)
+minTime -= datetime.timedelta(hours = 24)
 minTime = time.mktime(minTime.timetuple()) # Time must be given as unix timestamp
-activeThreadTs = []
 for message in slackApp.client.conversations_history(channel = getSlackChannelId(slackApp.client, SLACK_CHANNEL), oldest = minTime)["messages"][0:3]:
-    print(message['text'], "\n-----------------------------")
-    sectionText = emoji_data_python.replace_colons(message['text']) # Emoticons must be converted before HTML
-    print(sectionText, "\n-----------------------------")
-    sectionText = slackdown.render(sectionText)
-    print(sectionText, "\n===============================")
+    print(message, "\n-----------------------------")
+    print(slackApp.client.users_info(user = message["user"]), "\n======================")
+    # print(message['text'], "\n-----------------------------")
+    # sectionText = emoji_data_python.replace_colons(message['text']) # Emoticons must be converted before HTML
+    # print(sectionText, "\n-----------------------------")
+    # sectionText = slackdown.render(sectionText)
+    # print(sectionText, "\n===============================")   s
