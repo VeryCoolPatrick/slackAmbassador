@@ -71,7 +71,7 @@ def teamsMessage():
     return {'type' : 'message', 'text' : 'This is a reply'}
 
 # @scheduler.task('cron', day = "*", hour = 18) # Sheduled every day at 18:00
-@scheduler.task('cron', day = "*", hour = "*", minute = "*", second = "30") # Sheduled every day at 18:00
+@scheduler.task('cron', day = "*", hour = "*", minute = "*", second = "30") # Sheduled every minute
 def scheduledPosts():
     if os.path.exists("threadsList.txt"):
         with open("threadsList.txt", "r") as threadsList:
