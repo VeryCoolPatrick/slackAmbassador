@@ -21,6 +21,7 @@ scheduler.start()
 
 slackApp = slack_bolt.App(token = os.environ.get("SLACK_BOT_TOKEN"), signing_secret = os.environ.get("SLACK_SIGNING_SECRET"))
 channelId = getSlackChannelId(slackApp.client, SLACK_CHANNEL)
+botId = slackApp.client.auth_test()["user_id"]
 
 # On command every message from the specified period of time (24h default) and its replies are posted to teams
 @slackApp.command("/test")
@@ -54,15 +55,13 @@ def messageEvent(body, say):
     message = body["event"]
     if "thread_ts" in message and message["ts"] != message["thread_ts"]:
         return
-    say("Teams will see this thread, say hi!", thread_ts = message["ts"])
-    with open("threadsList.txt", "a") as threadsList:
+    with open("threadsList.txt", "a+") as threadsList:
+        threadsList.seek(0)
+        if message["ts"] in threadsList.read():
+                return
         threadsList.write(message["ts"])
         threadsList.write("\n")
-    # teamsMessage = pymsteams.connectorcard(os.environ.get("TEAMS_HOOK"))
-    # teamsMessage.addLinkButton("Click here to view on slack", f"https://slack.com/app_redirect?channel={channelId}")
-    # teamsMessage.summary("Slack Ambassador Bot")
-    # teamsMessage.addSection(messageToSection(slackApp.client, message, os.environ.get("SLACK_BOT_TOKEN")))
-    # teamsMessage.send()
+        say("Teams will see this thread, say hi!", thread_ts = message["ts"])
 
 @flaskApp.route("/", methods = ["POST"])
 @msteams_verify.verify_hmac(os.environ.get("TEAMS_OUTGOING_TOKEN"))
@@ -81,6 +80,8 @@ def scheduledPosts():
                 teamsMessage.addLinkButton("Click here to view on slack", f"https://slack.com/app_redirect?channel={channelId}")
                 teamsMessage.summary("Slack Ambassador Bot")
                 for reply in slackApp.client.conversations_replies(channel = channelId, ts = threadTs)["messages"]:
+                    if reply["user"] == botId:
+                        continue
                     teamsMessage.addSection(messageToSection(slackApp.client, reply, os.environ.get("SLACK_BOT_TOKEN")))
                 teamsMessage.send()
                 time.sleep(0.5) # Teams limited to 4 requests per second
