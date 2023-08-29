@@ -65,19 +65,25 @@ def imageToHtml(image, botToken: str):
     encodedImage = base64.b64encode(response.content)
     return f'<a href = "{image["url_private"]}"><img src="data:{response.headers.get("content-type")};base64, {encodedImage.decode()}" alt="{image["name"]}" /><a/>'
 
+# Convert slack messages to HTML
+def slackMessageToHtml(message, slackClient, slackBotToken):
+    text = message['text']
+    text = mentionToName(message = text, slackClient = slackClient) # Mentions and emoticons must be converted before HTML
+    text = emoji_data_python.replace_colons(text)
+    text = slackdown.render(text) # Convert markdown to HTML
+    if "files" in message:
+            for file in message["files"]:
+                if "image" in file["mimetype"]:
+                    text += imageToHtml(slackBotToken)
+    return text
+
+
 # Converts a slack message to connector card section. Includes formating and user details.
-def messageToSection(slackClient, message, botToken: str):
+def messageToSection(slackClient, message, slackBotToken: str):
     messageSection = pymsteams.cardsection()
     user = slackClient.users_info(user = message["user"])["user"]
     messageSection.activityTitle(getUsername(user))
     messageSection.activityImage(user["profile"]["image_192"])
-    sectionText = message['text']
-    sectionText = mentionToName(message = sectionText, slackClient = slackClient) # Mentions and emoticons must be converted before HTML
-    sectionText = emoji_data_python.replace_colons(sectionText)
-    sectionText = slackdown.render(sectionText) # Convert markdown to HTML
-    if "files" in message:
-            for file in message["files"]:
-                if "image" in file["mimetype"]:
-                    sectionText += imageToHtml(file, botToken) # Image added as HTML to text section as image section is broken in teams
+    sectionText = slackMessageToHtml(message, slackClient, slackBotToken)
     messageSection.text(sectionText)
     return messageSection

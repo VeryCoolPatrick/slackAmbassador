@@ -51,17 +51,49 @@ def testCommand2(body, ack):
 
 # For every message on slack it is imediatly copied to teams
 @slackApp.event("app_mention")
-def messageEvent(body, say):
+def mentionEvent(body, say):
     message = body["event"]
     if "thread_ts" in message and message["ts"] != message["thread_ts"]:
         return
-    with open("threadsList.txt", "a+") as threadsList:
-        threadsList.seek(0)
-        if message["ts"] in threadsList.read():
-                return
-        threadsList.write(message["ts"])
-        threadsList.write("\n")
-        say("Teams will see this thread, say hi!", thread_ts = message["ts"])
+    
+    # with open("threadsList.txt", "a+") as threadsList: # Adds ts to be sent on schedule
+    #     threadsList.seek(0)
+    #     if message["ts"] in threadsList.read():
+    #             return
+    #     threadsList.write(message["ts"])
+    #     threadsList.write("\n")
+    #     say("Teams will see this thread, say hi!", thread_ts = message["ts"])
+    
+    text = slackMessageToHtml(message, slackApp.client, os.environ.get("SLACK_BOT_TOKEN"))
+    response = requests.post(
+            os.environ.get("TEAMS_FLOW_URL"),
+            json=  {"threadId" : "", "message" : text},
+            headers = {"Content-Type": "application/json"},
+            timeout=60,
+        )
+    say(f"Teams can see this thread, say hi!\n`{response.headers['messageId']}`", thread_ts = message["ts"])
+
+@slackApp.message()
+def messageEvent(body):
+    message = body["event"]
+    if "thread_ts" not in message or message["ts"] == message["thread_ts"]:
+        return
+    thread = slackApp.client.conversations_replies(channel = channelId, ts = message["thread_ts"])["messages"]
+    if f"<@{botId}>" not in thread[0]["text"]: # Last item as list is ordered newest to oldest
+        return
+    for reply in thread: # Reversed skipping first for efficiency
+        if reply["user"] != botId:
+            continue
+        teamsMessageId = re.search(r"`(\w+)`", reply["text"]).group()[1:-1]
+        break
+    text = slackMessageToHtml(message, slackApp.client, os.environ.get("SLACK_BOT_TOKEN"))
+    requests.post(
+            os.environ.get("TEAMS_FLOW_URL"),
+            json=  {"threadId" : teamsMessageId, "message" : text},
+            headers = {"Content-Type": "application/json"},
+            timeout=60,
+        )
+
 
 @flaskApp.route("/", methods = ["POST"])
 @msteams_verify.verify_hmac(os.environ.get("TEAMS_OUTGOING_TOKEN"))
@@ -70,22 +102,24 @@ def teamsMessage():
     logging.info(data)
     return {'type' : 'message', 'text' : 'This is a reply'}
 
-# @scheduler.task('cron', day = "*", hour = 18) # Sheduled every day at 18:00
-@scheduler.task('cron', day = "*", hour = "*", minute = "*", second = "30") # Sheduled every minute
-def scheduledPosts():
-    if os.path.exists("threadsList.txt"):
-        with open("threadsList.txt", "r") as threadsList:
-            for threadTs in threadsList:
-                teamsMessage = pymsteams.connectorcard(os.environ.get("TEAMS_HOOK"))
-                teamsMessage.addLinkButton("Click here to view on slack", f"https://slack.com/app_redirect?channel={channelId}")
-                teamsMessage.summary("Slack Ambassador Bot")
-                for reply in slackApp.client.conversations_replies(channel = channelId, ts = threadTs)["messages"]:
-                    if reply["user"] == botId:
-                        continue
-                    teamsMessage.addSection(messageToSection(slackApp.client, reply, os.environ.get("SLACK_BOT_TOKEN")))
-                teamsMessage.send()
-                time.sleep(0.5) # Teams limited to 4 requests per second
-        os.remove("threadsList.txt")
+# # @scheduler.task('cron', day = "*", hour = 18) # Sheduled every day at 18:00
+# @scheduler.task('cron', day = "*", hour = "*", minute = "*", second = "30") # Sheduled every minute
+# def scheduledPosts():
+#     if os.path.exists("threadsList.txt"):
+#         with open("threadsList.txt", "r") as threadsList:
+#             for threadTs in threadsList:
+#                 teamsMessage = pymsteams.connectorcard(os.environ.get("TEAMS_HOOK"))
+#                 teamsMessage.addLinkButton("Click here to view on slack", f"https://slack.com/app_redirect?channel={channelId}")
+#                 teamsMessage.summary("Slack Ambassador Bot")
+#                 for reply in slackApp.client.conversations_replies(channel = channelId, ts = threadTs)["messages"]:
+#                     if reply["user"] == botId:
+#                         continue
+#                     teamsMessage.addSection(messageToSection(slackApp.client, reply, os.environ.get("SLACK_BOT_TOKEN")))
+#                 teamsMessage.send()
+#                 time.sleep(0.5) # Teams limited to 4 requests per second
+#         os.remove("threadsList.txt")
+
 if __name__ == "__main__":
-    SocketModeHandler(slackApp, os.environ["SLACK_SOCKET_TOKEN"]).connect()
-    flaskApp.run(use_reloader=False) # Reloader causes schedual to run events more than once
+    SocketModeHandler(slackApp, os.environ["SLACK_SOCKET_TOKEN"]).start()
+    # SocketModeHandler(slackApp, os.environ["SLACK_SOCKET_TOKEN"]).connect()
+    # flaskApp.run(use_reloader=False) # Reloader causes schedual to run events more than once
