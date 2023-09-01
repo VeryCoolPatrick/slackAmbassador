@@ -51,10 +51,20 @@ def testCommand2(body, ack):
 
 # For every message on slack it is imediatly copied to teams
 @slackApp.event("app_mention")
-def mentionEvent(body, say):
+def mentionEvent(body, ack, say):
+    ack()
     message = body["event"]
-    if "thread_ts" in message and message["ts"] != message["thread_ts"]:
-        return
+    if "thread_ts" in message:
+        if message["ts"] != message["thread_ts"]:
+            return
+        thread = slackApp.client.conversations_replies(channel = channelId, ts = message["thread_ts"])["messages"]
+        cancel = False
+        for reply in thread:
+            if reply["user"] == botId:
+                cancel = True
+                break
+        if(cancel):
+            return
     
     # with open("threadsList.txt", "a+") as threadsList: # Adds ts to be sent on schedule
     #     threadsList.seek(0)
@@ -64,32 +74,53 @@ def mentionEvent(body, say):
     #     threadsList.write("\n")
     #     say("Teams will see this thread, say hi!", thread_ts = message["ts"])
     
-    text = slackMessageToHtml(message, slackApp.client, os.environ.get("SLACK_BOT_TOKEN"))
+    user = slackApp.client.users_info(user = message["user"])["user"]
+    text = message["text"]
+    text = mentionToName(text, slackApp.client)
+    text = emoji_data_python.replace_colons(text)
     response = requests.post(
             os.environ.get("TEAMS_FLOW_URL"),
-            json=  {"threadId" : "", "message" : text},
+            json = {
+                "userName" : getUsername(user),
+                "avatar" : user["profile"]["image_192"],
+                "message" : text,
+                "images" : slackMessageToImageRun(message, slackApp.client, os.environ.get("SLACK_BOT_TOKEN")),
+                "threadId" : "" # Empty string denotes this message is the head of thread
+            },
             headers = {"Content-Type": "application/json"},
-            timeout=60,
+            timeout=60
         )
+
     say(f"Teams can see this thread, say hi!\n`{response.headers['messageId']}`", thread_ts = message["ts"])
 
-@slackApp.message()
+# If a slack message is a reply to one forwarded to teams the reply is also sent to teams
+# @slackApp.message()
+@slackApp.event("message")
 def messageEvent(body):
     message = body["event"]
     if "thread_ts" not in message or message["ts"] == message["thread_ts"]:
         return
     thread = slackApp.client.conversations_replies(channel = channelId, ts = message["thread_ts"])["messages"]
-    if f"<@{botId}>" not in thread[0]["text"]: # Last item as list is ordered newest to oldest
+    if f"<@{botId}>" not in thread[0]["text"]:
         return
-    for reply in thread: # Reversed skipping first for efficiency
+    for reply in thread:
         if reply["user"] != botId:
             continue
         teamsMessageId = re.search(r"`(\w+)`", reply["text"]).group()[1:-1]
         break
-    text = slackMessageToHtml(message, slackApp.client, os.environ.get("SLACK_BOT_TOKEN"))
+    text = message["text"]
+    text = mentionToName(text, slackApp.client)
+    text = emoji_data_python.replace_colons(text)
+    user = slackApp.client.users_info(user = message["user"])["user"]
     requests.post(
             os.environ.get("TEAMS_FLOW_URL"),
-            json=  {"threadId" : teamsMessageId, "message" : text},
+            json=  {
+                "userName" : getUsername(user),
+                "avatar" : user["profile"]["image_192"],
+                "message" : text,
+                "images" : slackMessageToImageRun(message, slackApp.client, os.environ.get("SLACK_BOT_TOKEN")),
+                "threadId" : teamsMessageId
+            },
             headers = {"Content-Type": "application/json"},
             timeout=60,
         )

@@ -9,6 +9,7 @@ import emoji_data_python
 import requests
 import base64
 import re
+import os
 
 def getSlackChannelId(slackClient: WebClient, channelName: str):
     try:
@@ -57,7 +58,7 @@ def mentionToName(message: str, slackClient):
     return message
 
 # Encodes the image in base 64 and returns image tags in link tags
-def imageToHtml(image, botToken: str):
+def imageToHtml(image, slackClient, botToken: str):
     response = requests.get(image["thumb_80"], headers = {"Authorization" : f"Bearer {botToken}"})
     if response.status_code != 200 or "image" not in response.headers.get("content-type"):
         logging.error("image error")
@@ -65,8 +66,47 @@ def imageToHtml(image, botToken: str):
     encodedImage = base64.b64encode(response.content)
     return f'<a href = "{image["url_private"]}"><img src="data:{response.headers.get("content-type")};base64, {encodedImage.decode()}" alt="{image["name"]}" /><a/>'
 
-# Convert slack messages to HTML
+    # response = slackClient.files_sharedPublicURL(token = os.environ.get("SLACK_USER_TOKEN"), file  = image["id"]) # Setting image public does not work on free trial
+    # return f'<img src="{response["file"]["permalink_public"]}" alt="{response["file"]["name"]}">'
+    
+# Encodes the image in base 64 and returns the url
+def imageToUrl(image, slackClient, botToken: str):
+    response = requests.get(image["thumb_80"], headers = {"Authorization" : f"Bearer {botToken}"})
+    if response.status_code != 200 or "image" not in response.headers.get("content-type"):
+        logging.error("image error")
+        return None
+    encodedImage = base64.b64encode(response.content)
+    return f'data:{response.headers.get("content-type")};base64,{encodedImage.decode()}'
+
+# Retuns a fully formated message including avatar and images
 def slackMessageToHtml(message, slackClient, slackBotToken):
+    user = slackClient.users_info(user = message["user"])["user"]
+    avatar = f'<img src = "{user["profile"]["image_48"]}" style = "border-radius: 50%" alt = "User Avatar">'
+    text = f"<p><strong>{getUsername(user)}</strong></p>"
+    text += slackTextToHtml(message, slackClient, slackBotToken)
+    return text
+
+# Convert iamges in 
+def slackMessageToImageRun(message, slackClient, slackBotToken):
+    images = ""
+    if "files" in message:
+            for file in message["files"]:
+                if "image" in file["mimetype"]:
+                    if images:
+                        images += ", "
+                    images += f"""{{
+                        "type": "Image",
+                        "url": "{imageToUrl(file, slackClient, slackBotToken)}",
+                        "altText": "{file["name"]}",
+                        "selectAction": {{
+                            "type": "Action.OpenUrl",
+                            "url": "{file["url_private"]}"
+                        }}
+                        }}"""
+    return images
+
+# Convert slack formating to HTML
+def slackTextToHtml(message, slackClient, slackBotToken):
     text = message['text']
     text = mentionToName(message = text, slackClient = slackClient) # Mentions and emoticons must be converted before HTML
     text = emoji_data_python.replace_colons(text)
@@ -74,16 +114,15 @@ def slackMessageToHtml(message, slackClient, slackBotToken):
     if "files" in message:
             for file in message["files"]:
                 if "image" in file["mimetype"]:
-                    text += imageToHtml(slackBotToken)
+                    text += imageToHtml(file, slackClient, slackBotToken)
     return text
 
-
 # Converts a slack message to connector card section. Includes formating and user details.
-def messageToSection(slackClient, message, slackBotToken: str):
+def messageToSection(message, slackClient, slackBotToken: str):
     messageSection = pymsteams.cardsection()
     user = slackClient.users_info(user = message["user"])["user"]
     messageSection.activityTitle(getUsername(user))
     messageSection.activityImage(user["profile"]["image_192"])
-    sectionText = slackMessageToHtml(message, slackClient, slackBotToken)
+    sectionText = slackTextToHtml(message, slackClient, slackBotToken)
     messageSection.text(sectionText)
     return messageSection
