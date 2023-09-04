@@ -17,7 +17,7 @@ def getSlackChannelId(slackClient: WebClient, channelName: str):
             for channel in conversation["channels"]:
                 if channel["name"] == channelName:
                     return channel["id"]
-        raise SlackApiError("Channel not found!")
+        raise SlackApiError("Channel not found!", None)
     except SlackApiError as e:
         logging.exception(e)
 

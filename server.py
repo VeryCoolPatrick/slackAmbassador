@@ -2,40 +2,45 @@ from config import *
 import os
 from dotenv import load_dotenv
 import logging
-from slackFunctions import *
-from flask import Flask, request
-from flask_apscheduler import APScheduler
+import slackFunctions as sf
+from flask import Flask, request, make_response
+# from flask_apscheduler import APScheduler
 import slack_bolt
-from slack_bolt.adapter.socket_mode import SocketModeHandler
+# from slack_bolt.adapter.socket_mode import SocketModeHandler
+from slackeventsapi import SlackEventAdapter
 import pymsteams
 import msteams_verify
+import time
+import requests
+import re
 
 load_dotenv()
 logging.basicConfig(level=logging.DEBUG)
 
 flaskApp = Flask("__name__")
-scheduler = APScheduler()
-scheduler.api_enabled = True
-scheduler.init_app(flaskApp)
-scheduler.start()
+# scheduler = APScheduler()
+# scheduler.api_enabled = True
+# scheduler.init_app(flaskApp)
+# scheduler.start()
 
 slackApp = slack_bolt.App(token = os.environ.get("SLACK_BOT_TOKEN"), signing_secret = os.environ.get("SLACK_SIGNING_SECRET"))
-channelId = getSlackChannelId(slackApp.client, SLACK_CHANNEL)
+slackEventAdapter = SlackEventAdapter(os.environ.get("SLACK_BOT_TOKEN"), "/slack/events", flaskApp)
+channelId = sf.getSlackChannelId(slackApp.client, SLACK_CHANNEL)
 botId = slackApp.client.auth_test()["user_id"]
 
 # On command every message from the specified period of time (24h default) and its replies are posted to teams
 @slackApp.command("/test")
 def testCommand(body, ack):
     ack() # Must acknowledge within 3? second of slash command
-    activeThreads = getActiveThreads(slackApp.client, channelId, OLDEST_THREAD_HOURS)
+    activeThreads = sf.getActiveThreads(slackApp.client, channelId, OLDEST_THREAD_HOURS)
     for thread in reversed(activeThreads): # Reverse to send oldest message first
         teamsMessage = pymsteams.connectorcard(os.environ.get("TEAMS_HOOK"))
         teamsMessage.addLinkButton("Click here to view on slack", f"https://slack.com/app_redirect?channel={channelId}")
         teamsMessage.summary("Slack Ambassador Bot")
         for reply in thread:
-            teamsMessage.addSection(messageToSection(slackApp.client, reply, os.environ.get("SLACK_BOT_TOKEN")))
+            teamsMessage.addSection(sf.messageToSection(slackApp.client, reply, os.environ.get("SLACK_BOT_TOKEN")))
         teamsMessage.send()
-        time.sleep(0.5) # Teams limited to 4 requests per second
+        time.sleep(0.25) # Teams limited to 4 requests per second
 
 @slackApp.command("/teams")
 def testCommand2(body, ack):
@@ -76,15 +81,15 @@ def mentionEvent(body, ack, say):
     
     user = slackApp.client.users_info(user = message["user"])["user"]
     text = message["text"]
-    text = mentionToName(text, slackApp.client)
-    text = emoji_data_python.replace_colons(text)
+    text = sf.mentionToName(text, slackApp.client)
+    text = sf.emoji_data_python.replace_colons(text)
     response = requests.post(
             os.environ.get("TEAMS_FLOW_URL"),
             json = {
-                "userName" : getUsername(user),
+                "userName" : sf.getUsername(user),
                 "avatar" : user["profile"]["image_192"],
                 "message" : text,
-                "images" : slackMessageToImageRun(message, slackApp.client, os.environ.get("SLACK_BOT_TOKEN")),
+                "images" : sf.slackMessageToImageRun(message, slackApp.client, os.environ.get("SLACK_BOT_TOKEN")),
                 "threadId" : "" # Empty string denotes this message is the head of thread
             },
             headers = {"Content-Type": "application/json"},
@@ -109,16 +114,16 @@ def messageEvent(body):
         teamsMessageId = re.search(r"`(\w+)`", reply["text"]).group()[1:-1]
         break
     text = message["text"]
-    text = mentionToName(text, slackApp.client)
-    text = emoji_data_python.replace_colons(text)
+    text = sf.mentionToName(text, slackApp.client)
+    text = sf.emoji_data_python.replace_colons(text)
     user = slackApp.client.users_info(user = message["user"])["user"]
     requests.post(
             os.environ.get("TEAMS_FLOW_URL"),
             json=  {
-                "userName" : getUsername(user),
+                "userName" : sf.getUsername(user),
                 "avatar" : user["profile"]["image_192"],
                 "message" : text,
-                "images" : slackMessageToImageRun(message, slackApp.client, os.environ.get("SLACK_BOT_TOKEN")),
+                "images" : sf.slackMessageToImageRun(message, slackApp.client, os.environ.get("SLACK_BOT_TOKEN")),
                 "threadId" : teamsMessageId
             },
             headers = {"Content-Type": "application/json"},
@@ -150,7 +155,11 @@ def teamsMessage():
 #                 time.sleep(0.5) # Teams limited to 4 requests per second
 #         os.remove("threadsList.txt")
 
+@flaskApp.route("/slack/", methods = ["POST"])
+def challengeResponse():
+    return {"challenge" : request.json["challenge"]}
+
 if __name__ == "__main__":
-    SocketModeHandler(slackApp, os.environ["SLACK_SOCKET_TOKEN"]).start()
+    # SocketModeHandler(slackApp, os.environ["SLACK_SOCKET_TOKEN"]).start()
     # SocketModeHandler(slackApp, os.environ["SLACK_SOCKET_TOKEN"]).connect()
-    # flaskApp.run(use_reloader=False) # Reloader causes schedual to run events more than once
+    flaskApp.run(use_reloader=False, debug=True) # Reloader causes schedual to run events more than once
