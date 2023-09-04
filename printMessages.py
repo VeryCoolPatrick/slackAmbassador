@@ -27,8 +27,8 @@ for message in slackApp.client.conversations_history(channel = getSlackChannelId
     #             if "image" in file["mimetype"]:
     #                 sectionText += imageToHtml(file, os.environ.get("SLACK_BOT_TOKEN")) # Image added as HTML to text section as image section is broken in teams
     #   
-    # print(message, "\n-----------------------------")
-    print(slackApp.client.users_info(user = message["user"]), "\n======================")
+    print(message['text'], "\n-----------------------------")
+    # print(slackApp.client.users_info(user = message["user"]), "\n======================")
     # print(message['text'], "\n-----------------------------")
     # sectionText = emoji_data_python.replace_colons(message['text']) # Emoticons must be converted before HTML
     # print(sectionText, "\n-----------------------------")
