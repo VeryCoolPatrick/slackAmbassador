@@ -3,7 +3,7 @@ import os
 from dotenv import load_dotenv
 import logging
 import slackFunctions as sf
-from flask import Flask, request, make_response
+from flask import Flask, request, make_response, Blueprint
 # from flask_apscheduler import APScheduler
 import slack_bolt
 # from slack_bolt.adapter.socket_mode import SocketModeHandler
@@ -18,15 +18,16 @@ load_dotenv()
 logging.basicConfig(level=logging.DEBUG)
 
 flaskApp = Flask("__name__")
+slackEventAdapter = SlackEventAdapter(os.environ.get("SLACK_SIGNING_SECRET"), "/slack/", flaskApp)
 # scheduler = APScheduler()
 # scheduler.api_enabled = True
 # scheduler.init_app(flaskApp)
 # scheduler.start()
 
 slackApp = slack_bolt.App(token = os.environ.get("SLACK_BOT_TOKEN"), signing_secret = os.environ.get("SLACK_SIGNING_SECRET"))
-slackEventAdapter = SlackEventAdapter(os.environ.get("SLACK_BOT_TOKEN"), "/slack/events", flaskApp)
 channelId = sf.getSlackChannelId(slackApp.client, SLACK_CHANNEL)
 botId = slackApp.client.auth_test()["user_id"]
+
 
 # On command every message from the specified period of time (24h default) and its replies are posted to teams
 @slackApp.command("/test")
@@ -34,12 +35,12 @@ def testCommand(body, ack):
     ack() # Must acknowledge within 3? second of slash command
     activeThreads = sf.getActiveThreads(slackApp.client, channelId, OLDEST_THREAD_HOURS)
     for thread in reversed(activeThreads): # Reverse to send oldest message first
-        teamsMessage = pymsteams.connectorcard(os.environ.get("TEAMS_HOOK"))
-        teamsMessage.addLinkButton("Click here to view on slack", f"https://slack.com/app_redirect?channel={channelId}")
-        teamsMessage.summary("Slack Ambassador Bot")
+        message = pymsteams.connectorcard(os.environ.get("TEAMS_HOOK"))
+        message.addLinkButton("Click here to view on slack", f"https://slack.com/app_redirect?channel={channelId}")
+        message.summary("Slack Ambassador Bot")
         for reply in thread:
-            teamsMessage.addSection(sf.messageToSection(slackApp.client, reply, os.environ.get("SLACK_BOT_TOKEN")))
-        teamsMessage.send()
+            message.addSection(sf.messageToSection(slackApp.client, reply, os.environ.get("SLACK_BOT_TOKEN")))
+        message.send()
         time.sleep(0.25) # Teams limited to 4 requests per second
 
 @slackApp.command("/teams")
@@ -54,11 +55,13 @@ def testCommand2(body, ack):
     # teamsMessage.send()
     
 
-# For every message on slack it is imediatly copied to teams
-@slackApp.event("app_mention")
-def mentionEvent(body, ack, say):
-    ack()
-    message = body["event"]
+# When the bot is mentioned a reply is given containing the id of the message forwarded to teams
+# @slackApp.event("app_mention")
+# def mentionEvent(body, ack, say):
+@slackEventAdapter.on("app_mention")
+def mentionEvent(eventData):
+    print(eventData)
+    message = eventData["event"]
     if "thread_ts" in message:
         if message["ts"] != message["thread_ts"]:
             return
@@ -70,15 +73,6 @@ def mentionEvent(body, ack, say):
                 break
         if(cancel):
             return
-    
-    # with open("threadsList.txt", "a+") as threadsList: # Adds ts to be sent on schedule
-    #     threadsList.seek(0)
-    #     if message["ts"] in threadsList.read():
-    #             return
-    #     threadsList.write(message["ts"])
-    #     threadsList.write("\n")
-    #     say("Teams will see this thread, say hi!", thread_ts = message["ts"])
-    
     user = slackApp.client.users_info(user = message["user"])["user"]
     text = message["text"]
     text = sf.mentionToName(text, slackApp.client)
@@ -95,14 +89,22 @@ def mentionEvent(body, ack, say):
             headers = {"Content-Type": "application/json"},
             timeout=60
         )
+    slackApp.client.chat_postMessage(text = f"Teams can see this thread, say hi!\n`{response.headers['messageId']}`", thread_ts = message["ts"], channel = channelId)
+    # say(f"Teams can see this thread, say hi!\n`{response.headers['messageId']}`", thread_ts = message["ts"])
 
-    say(f"Teams can see this thread, say hi!\n`{response.headers['messageId']}`", thread_ts = message["ts"])
+    # with open("threadsList.txt", "a+") as threadsList: # Adds ts to be sent on schedule
+    #     threadsList.seek(0)
+    #     if message["ts"] in threadsList.read():
+    #             return
+    #     threadsList.write(message["ts"])
+    #     threadsList.write("\n")
+    #     say("Teams will see this thread, say hi!", thread_ts = message["ts"])
 
 # If a slack message is a reply to one forwarded to teams the reply is also sent to teams
 # @slackApp.message()
-@slackApp.event("message")
-def messageEvent(body):
-    message = body["event"]
+@slackEventAdapter.on("message")
+def messageEvent(eventData):
+    message = eventData["event"]
     if "thread_ts" not in message or message["ts"] == message["thread_ts"]:
         return
     thread = slackApp.client.conversations_replies(channel = channelId, ts = message["thread_ts"])["messages"]
@@ -155,9 +157,11 @@ def teamsMessage():
 #                 time.sleep(0.5) # Teams limited to 4 requests per second
 #         os.remove("threadsList.txt")
 
-@flaskApp.route("/slack/", methods = ["POST"])
+# @flaskApp.route("/slack/", methods = ["POST"])
+@slackEventAdapter.on("url_verification")
 def challengeResponse():
-    return {"challenge" : request.json["challenge"]}
+    if request.json["type"] == "url_verification":
+        return {"challenge" : request.json["challenge"]}
 
 if __name__ == "__main__":
     # SocketModeHandler(slackApp, os.environ["SLACK_SOCKET_TOKEN"]).start()
