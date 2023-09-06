@@ -29,30 +29,30 @@ channelId = sf.getSlackChannelId(slackApp.client, SLACK_CHANNEL)
 botId = slackApp.client.auth_test()["user_id"]
 
 
-# On command every message from the specified period of time (24h default) and its replies are posted to teams
-@slackApp.command("/test")
-def testCommand(body, ack):
-    ack() # Must acknowledge within 3? second of slash command
-    activeThreads = sf.getActiveThreads(slackApp.client, channelId, OLDEST_THREAD_HOURS)
-    for thread in reversed(activeThreads): # Reverse to send oldest message first
-        message = pymsteams.connectorcard(os.environ.get("TEAMS_HOOK"))
-        message.addLinkButton("Click here to view on slack", f"https://slack.com/app_redirect?channel={channelId}")
-        message.summary("Slack Ambassador Bot")
-        for reply in thread:
-            message.addSection(sf.messageToSection(slackApp.client, reply, os.environ.get("SLACK_BOT_TOKEN")))
-        message.send()
-        time.sleep(0.25) # Teams limited to 4 requests per second
+# # On command every message from the specified period of time (24h default) and its replies are posted to teams
+# @slackApp.command("/test")
+# def testCommand(body, ack):
+#     ack() # Must acknowledge within 3? second of slash command
+#     activeThreads = sf.getActiveThreads(slackApp.client, channelId, OLDEST_THREAD_HOURS)
+#     for thread in reversed(activeThreads): # Reverse to send oldest message first
+#         message = pymsteams.connectorcard(os.environ.get("TEAMS_HOOK"))
+#         message.addLinkButton("Click here to view on slack", f"https://slack.com/app_redirect?channel={channelId}")
+#         message.summary("Slack Ambassador Bot")
+#         for reply in thread:
+#             message.addSection(sf.messageToSection(slackApp.client, reply, os.environ.get("SLACK_BOT_TOKEN")))
+#         message.send()
+#         time.sleep(0.25) # Teams limited to 4 requests per second
 
-@slackApp.command("/teams")
-def testCommand2(body, ack):
-    ack() # Must acknowledge within 3? second of slash command
-    print(body)
-    # message = body["event"]
-    # teamsMessage = pymsteams.connectorcard(os.environ.get("TEAMS_HOOK"))
-    # teamsMessage.addLinkButton("Click here to view on slack", f"https://slack.com/app_redirect?channel={channelId}")
-    # teamsMessage.summary("Slack Ambassador Bot")
-    # teamsMessage.addSection(messageToSection(slackApp.client, message, os.environ.get("SLACK_BOT_TOKEN")))
-    # teamsMessage.send()
+# @slackApp.command("/teams")
+# def testCommand2(body, ack):
+#     ack() # Must acknowledge within 3? second of slash command
+#     print(body)
+#     # message = body["event"]
+#     # teamsMessage = pymsteams.connectorcard(os.environ.get("TEAMS_HOOK"))
+#     # teamsMessage.addLinkButton("Click here to view on slack", f"https://slack.com/app_redirect?channel={channelId}")
+#     # teamsMessage.summary("Slack Ambassador Bot")
+#     # teamsMessage.addSection(messageToSection(slackApp.client, message, os.environ.get("SLACK_BOT_TOKEN")))
+#     # teamsMessage.send()
     
 
 # When the bot is mentioned a reply is given containing the id of the message forwarded to teams
@@ -60,7 +60,6 @@ def testCommand2(body, ack):
 # def mentionEvent(body, ack, say):
 @slackEventAdapter.on("app_mention")
 def mentionEvent(eventData):
-    print(eventData)
     message = eventData["event"]
     if "thread_ts" in message:
         if message["ts"] != message["thread_ts"]:
@@ -105,7 +104,7 @@ def mentionEvent(eventData):
 @slackEventAdapter.on("message")
 def messageEvent(eventData):
     message = eventData["event"]
-    if "thread_ts" not in message or message["ts"] == message["thread_ts"]:
+    if ("thread_ts" not in message) or( message["ts"] == message["thread_ts"]) or (message["user"] == botId):
         return
     thread = slackApp.client.conversations_replies(channel = channelId, ts = message["thread_ts"])["messages"]
     if f"<@{botId}>" not in thread[0]["text"]:
@@ -133,7 +132,7 @@ def messageEvent(eventData):
         )
 
 
-@flaskApp.route("/", methods = ["POST"])
+@flaskApp.route("/teams/", methods = ["POST"])
 @msteams_verify.verify_hmac(os.environ.get("TEAMS_OUTGOING_TOKEN"))
 def teamsMessage():
     data = request.data
