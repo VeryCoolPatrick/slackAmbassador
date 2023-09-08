@@ -69,7 +69,7 @@ def imageToHtml(image, slackClient, botToken: str):
         logging.error("image error")
         return None
     encodedImage = base64.b64encode(response.content)
-    return f'<a href = "{image["url_private"]}"><img src="data:{response.headers.get("content-type")};base64, {encodedImage.decode()}" alt="{image["name"]}" width="80" height="80"/><a/>'
+    return f'<a href = "{image["url_private"]}"><img src="data:{response.headers.get("content-type")};base64, {encodedImage.decode()}" alt="{image["name"]}" width="80" height="80"></a>'
    
 # Encodes the image in base 64 and returns the url
 def imageToUrl(image, slackClient, botToken: str):
@@ -81,11 +81,16 @@ def imageToUrl(image, slackClient, botToken: str):
     return f'data:{response.headers.get("content-type")};base64,{encodedImage.decode()}'
 
 # Retuns a fully formated message including avatar and images
-def slackMessageToHtml(message, slackClient, slackBotToken):
+def slackMessageToHtml(message, slackClient, slackBotToken, channelId):
     user = slackClient.users_info(user = message["user"])["user"]
     avatar = f'<img src = "{user["profile"]["image_48"]}"  alt = "User Avatar" width = "48" height = "48">'
-    text = f"<table><tr><td>{avatar}</td><td VALIGN=TOP><strong>&nbsp;&nbsp;&nbsp;{getUsername(user)}</strong></td></tr></table></p>"
-    text += slackTextToHtml(message, slackClient, slackBotToken) + "</p>"
+    messageLink = slackClient.chat_getPermalink(token=slackBotToken, message_ts=message["ts"], channel=channelId)
+    if messageLink["ok"]:
+        messageLink = f'<a href="{messageLink["permalink"]}">Forwarded from Slack</a>'
+    else:
+        messageLink = ""
+    text = f"<table><tr><td>{avatar}</td><td VALIGN=TOP><strong>&nbsp;&nbsp;&nbsp;{getUsername(user)}</strong><br />&nbsp;&nbsp;&nbsp;{messageLink}</td></tr></table></p>"
+    text += slackTextToHtml(message, slackClient, slackBotToken)
     return text
 
 # Convert iamges in 
@@ -111,10 +116,10 @@ def slackMessageToImageRun(message, slackClient, slackBotToken):
 def slackTextToHtml(message, slackClient, slackBotToken):
     text = message['text']
     text = mentionToName(message = text, slackClient = slackClient) # Mentions and emoticons must be converted before HTML
-    # text = emoji_data_python.replace_colons(text)
-    # text = slackdown.render(text) # Convert markdown to HTML
-    text = text.replace("\n", "<br />")
-    text = markdown(text, extensions=[PythonMarkdownSlack()])
+    text = emoji_data_python.replace_colons(text)
+    text = slackdown.render(text) # Convert markdown to HTML
+    # text = text.replace("\n", "<br />")
+    # text = markdown(text, extensions=[PythonMarkdownSlack()])
     if "files" in message:
             for file in message["files"]:
                 if "image" in file["mimetype"]:

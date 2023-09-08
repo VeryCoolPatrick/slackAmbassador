@@ -79,7 +79,7 @@ def mentionEvent(eventData):
     # text = sf.mentionToName(text, slackApp.client)
     # text = sf.emoji_data_python.replace_colons(text)
     # text = richText.format(text, slackApp.client)
-    text = sf.slackMessageToHtml(message, slackApp.client, os.environ.get("SLACK_BOT_TOKEN"))
+    text = sf.slackMessageToHtml(message, slackApp.client, os.environ.get("SLACK_BOT_TOKEN"), channelId)
     response = requests.post(
             os.environ.get("TEAMS_FLOW_URL"),
             json = {
@@ -119,11 +119,8 @@ def messageEvent(eventData):
             continue
         teamsMessageId = re.search(r"`(\w+)`", reply["text"]).group()[1:-1]
         break
-    # text = message["text"]
-    # text = sf.mentionToName(text, slackApp.client)
-    # text = sf.emoji_data_python.replace_colons(text)
-    # user = slackApp.client.users_info(user = message["user"])["user"]
-    text = sf.slackMessageToHtml(message, slackApp.client, os.environ.get("SLACK_BOT_TOKEN"))
+
+    text = sf.slackMessageToHtml(message, slackApp.client, os.environ.get("SLACK_BOT_TOKEN"), channelId)
     requests.post(
             os.environ.get("TEAMS_FLOW_URL"),
             json=  {
