@@ -10,6 +10,9 @@ import requests
 import base64
 import re
 import os
+from markdown import markdown
+from python_markdown_slack import PythonMarkdownSlack
+
 
 def getSlackChannelId(slackClient: WebClient, channelName: str):
     try:
@@ -50,7 +53,9 @@ def mentionToName(message: str, slackClient):
     mentionMatches = re.findall(mentionPatern, message)
     for mention in mentionMatches:
         userResponse = slackClient.users_info(user = mention)
-        if userResponse["ok"] == False or userResponse["user"]["is_bot"]:
+        if not userResponse["ok"]:
+            continue
+        if userResponse["user"]["is_bot"]:
             replacementText = ""
         else:
             replacementText = f'*{getUsername(userResponse["user"])}*'
@@ -64,11 +69,8 @@ def imageToHtml(image, slackClient, botToken: str):
         logging.error("image error")
         return None
     encodedImage = base64.b64encode(response.content)
-    return f'<a href = "{image["url_private"]}"><img src="data:{response.headers.get("content-type")};base64, {encodedImage.decode()}" alt="{image["name"]}" /><a/>'
-
-    # response = slackClient.files_sharedPublicURL(token = os.environ.get("SLACK_USER_TOKEN"), file  = image["id"]) # Setting image public does not work on free trial
-    # return f'<img src="{response["file"]["permalink_public"]}" alt="{response["file"]["name"]}">'
-    
+    return f'<a href = "{image["url_private"]}"><img src="data:{response.headers.get("content-type")};base64, {encodedImage.decode()}" alt="{image["name"]}" width="80" height="80"/><a/>'
+   
 # Encodes the image in base 64 and returns the url
 def imageToUrl(image, slackClient, botToken: str):
     response = requests.get(image["thumb_80"], headers = {"Authorization" : f"Bearer {botToken}"})
@@ -81,9 +83,9 @@ def imageToUrl(image, slackClient, botToken: str):
 # Retuns a fully formated message including avatar and images
 def slackMessageToHtml(message, slackClient, slackBotToken):
     user = slackClient.users_info(user = message["user"])["user"]
-    avatar = f'<img src = "{user["profile"]["image_48"]}" style = "border-radius: 50%" alt = "User Avatar">'
-    text = f"<p><strong>{getUsername(user)}</strong></p>"
-    text += slackTextToHtml(message, slackClient, slackBotToken)
+    avatar = f'<img src = "{user["profile"]["image_48"]}"  alt = "User Avatar" width = "48" height = "48">'
+    text = f"<table><tr><td>{avatar}</td><td VALIGN=TOP><strong>&nbsp;&nbsp;&nbsp;{getUsername(user)}</strong></td></tr></table></p>"
+    text += slackTextToHtml(message, slackClient, slackBotToken) + "</p>"
     return text
 
 # Convert iamges in 
@@ -109,8 +111,10 @@ def slackMessageToImageRun(message, slackClient, slackBotToken):
 def slackTextToHtml(message, slackClient, slackBotToken):
     text = message['text']
     text = mentionToName(message = text, slackClient = slackClient) # Mentions and emoticons must be converted before HTML
-    text = emoji_data_python.replace_colons(text)
-    text = slackdown.render(text) # Convert markdown to HTML
+    # text = emoji_data_python.replace_colons(text)
+    # text = slackdown.render(text) # Convert markdown to HTML
+    text = text.replace("\n", "<br />")
+    text = markdown(text, extensions=[PythonMarkdownSlack()])
     if "files" in message:
             for file in message["files"]:
                 if "image" in file["mimetype"]:

@@ -17,7 +17,9 @@ slackApp = slack_bolt.App(token = os.environ.get("SLACK_BOT_TOKEN"), signing_sec
 minTime = datetime.datetime.now() 
 minTime -= datetime.timedelta(hours = 24)
 minTime = time.mktime(minTime.timetuple()) # Time must be given as unix timestamp
-for message in slackApp.client.conversations_history(channel = getSlackChannelId(slackApp.client, SLACK_CHANNEL), oldest = minTime)["messages"][0:3]:
+for message in slackApp.client.conversations_history(channel = getSlackChannelId(slackApp.client, SLACK_CHANNEL), oldest = minTime)["messages"][0:1]:
+    file = slackApp.client.files_info(token = os.environ.get("SLACK_BOT_TOKEN") ,file=message["ts"], )
+    print(message)
     # sectionText = message['text']
     # sectionText = mentionToName(message = sectionText, slackClient = slackApp.client) # Mentions and emoticons must be converted before HTML
     # sectionText = emoji_data_python.replace_colons(sectionText)
@@ -27,7 +29,7 @@ for message in slackApp.client.conversations_history(channel = getSlackChannelId
     #             if "image" in file["mimetype"]:
     #                 sectionText += imageToHtml(file, os.environ.get("SLACK_BOT_TOKEN")) # Image added as HTML to text section as image section is broken in teams
     #   
-    print(message['text'], "\n-----------------------------")
+    # print(message['text'], "\n-----------------------------")
     # print(slackApp.client.users_info(user = message["user"]), "\n======================")
     # print(message['text'], "\n-----------------------------")
     # sectionText = emoji_data_python.replace_colons(message['text']) # Emoticons must be converted before HTML

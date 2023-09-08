@@ -3,7 +3,8 @@ import os
 from dotenv import load_dotenv
 import logging
 import slackFunctions as sf
-from flask import Flask, request, make_response, Blueprint
+# import slackdownToRichText as richText
+from flask import Flask, request
 # from flask_apscheduler import APScheduler
 import slack_bolt
 # from slack_bolt.adapter.socket_mode import SocketModeHandler
@@ -13,6 +14,7 @@ import msteams_verify
 import time
 import requests
 import re
+import json
 
 load_dotenv()
 logging.basicConfig(level=logging.DEBUG)
@@ -72,17 +74,19 @@ def mentionEvent(eventData):
                 break
         if(cancel):
             return
-    user = slackApp.client.users_info(user = message["user"])["user"]
-    text = message["text"]
-    text = sf.mentionToName(text, slackApp.client)
-    text = sf.emoji_data_python.replace_colons(text)
+    # user = slackApp.client.users_info(user = message["user"])["user"]
+    # text = message["text"]
+    # text = sf.mentionToName(text, slackApp.client)
+    # text = sf.emoji_data_python.replace_colons(text)
+    # text = richText.format(text, slackApp.client)
+    text = sf.slackMessageToHtml(message, slackApp.client, os.environ.get("SLACK_BOT_TOKEN"))
     response = requests.post(
             os.environ.get("TEAMS_FLOW_URL"),
             json = {
-                "userName" : sf.getUsername(user),
-                "avatar" : user["profile"]["image_192"],
+                # "userName" : sf.getUsername(user),
+                # "avatar" : user["profile"]["image_192"],
                 "message" : text,
-                "images" : sf.slackMessageToImageRun(message, slackApp.client, os.environ.get("SLACK_BOT_TOKEN")),
+                # "images" : sf.slackMessageToImageRun(message, slackApp.client, os.environ.get("SLACK_BOT_TOKEN")),
                 "threadId" : "" # Empty string denotes this message is the head of thread
             },
             headers = {"Content-Type": "application/json"},
@@ -98,6 +102,7 @@ def mentionEvent(eventData):
     #     threadsList.write(message["ts"])
     #     threadsList.write("\n")
     #     say("Teams will see this thread, say hi!", thread_ts = message["ts"])
+    return 
 
 # If a slack message is a reply to one forwarded to teams the reply is also sent to teams
 # @slackApp.message()
@@ -105,31 +110,33 @@ def mentionEvent(eventData):
 def messageEvent(eventData):
     message = eventData["event"]
     if ("thread_ts" not in message) or( message["ts"] == message["thread_ts"]) or (message["user"] == botId):
-        return
+        return {"ok" : True}
     thread = slackApp.client.conversations_replies(channel = channelId, ts = message["thread_ts"])["messages"]
     if f"<@{botId}>" not in thread[0]["text"]:
-        return
+        return {"ok" : True}
     for reply in thread:
         if reply["user"] != botId:
             continue
         teamsMessageId = re.search(r"`(\w+)`", reply["text"]).group()[1:-1]
         break
-    text = message["text"]
-    text = sf.mentionToName(text, slackApp.client)
-    text = sf.emoji_data_python.replace_colons(text)
-    user = slackApp.client.users_info(user = message["user"])["user"]
+    # text = message["text"]
+    # text = sf.mentionToName(text, slackApp.client)
+    # text = sf.emoji_data_python.replace_colons(text)
+    # user = slackApp.client.users_info(user = message["user"])["user"]
+    text = sf.slackMessageToHtml(message, slackApp.client, os.environ.get("SLACK_BOT_TOKEN"))
     requests.post(
             os.environ.get("TEAMS_FLOW_URL"),
             json=  {
-                "userName" : sf.getUsername(user),
-                "avatar" : user["profile"]["image_192"],
+                # "userName" : sf.getUsername(user),
+                # "avatar" : user["profile"]["image_192"],
                 "message" : text,
-                "images" : sf.slackMessageToImageRun(message, slackApp.client, os.environ.get("SLACK_BOT_TOKEN")),
+                # "images" : sf.slackMessageToImageRun(message, slackApp.client, os.environ.get("SLACK_BOT_TOKEN")),
                 "threadId" : teamsMessageId
             },
             headers = {"Content-Type": "application/json"},
             timeout=60,
         )
+    return {"ok" : True}
 
 
 @flaskApp.route("/teams/", methods = ["POST"])
