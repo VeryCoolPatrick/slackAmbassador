@@ -1,7 +1,7 @@
 ####################################################################
 # I stole this file from here:
 # https://github.com/esmcelroy/python-flask-outgoing-webhook-bots
-# I copied the file itself partialy as it is a secutity tool
+# I copied the file itself partialy as it is a security tool
 # we don't want to be unexpectedly changed.
 # Mostly due to lazyness.
 ####################################################################

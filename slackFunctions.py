@@ -1,3 +1,7 @@
+########################################################################################################
+# Utility functions for the Slack Ambassador server are kept here to keep the main script tidy.
+########################################################################################################
+
 import time
 import datetime
 import logging
@@ -9,9 +13,6 @@ import emoji_data_python
 import requests
 import base64
 import re
-import os
-from markdown import markdown
-from python_markdown_slack import PythonMarkdownSlack
 
 
 def getSlackChannelId(slackClient: WebClient, channelName: str):
@@ -47,7 +48,7 @@ def getUsername(user):
         return user["profile"]["display_name"]
     return user["name"]
 
-# Converts slack mentions using user ID to bold HTML display name
+# Converts slack mentions using user ID to bold markdown display name
 def mentionToName(message: str, slackClient):
     mentionPatern = r"<@(\w+)>"
     mentionMatches = re.findall(mentionPatern, message)
@@ -56,13 +57,14 @@ def mentionToName(message: str, slackClient):
         if not userResponse["ok"]:
             continue
         if userResponse["user"]["is_bot"]:
-            replacementText = ""
+            replacementText = "" # Gets rid of the mention that origianly called the bot
         else:
             replacementText = f'*{getUsername(userResponse["user"])}*'
         message = message.replace(f"<@{mention}>", replacementText)
     return message
 
 # Encodes the image in base 64 and returns image tags in link tags
+# Images in links don't apear to work in plain messages but they do in connector cards
 def imageToHtml(image, slackClient, botToken: str):
     response = requests.get(image["thumb_80"], headers = {"Authorization" : f"Bearer {botToken}"})
     if response.status_code != 200 or "image" not in response.headers.get("content-type"):
@@ -93,7 +95,7 @@ def slackMessageToHtml(message, slackClient, slackBotToken, channelId):
     text += slackTextToHtml(message, slackClient, slackBotToken)
     return text
 
-# Convert iamges in 
+# Convert images to an image run for an adaptive card
 def slackMessageToImageRun(message, slackClient, slackBotToken):
     images = ""
     if "files" in message:
@@ -113,14 +115,13 @@ def slackMessageToImageRun(message, slackClient, slackBotToken):
     return images
 
 # Convert slack formating to HTML
+# Slackdown is no longer maintained and struggles when there are formatted and unforamtted links in one
 def slackTextToHtml(message, slackClient, slackBotToken):
     text = message['text']
     text = mentionToName(message = text, slackClient = slackClient) # Mentions and emoticons must be converted before HTML
     text = emoji_data_python.replace_colons(text)
     text = slackdown.render(text) # Convert markdown to HTML
-    # text = text.replace("\n", "<br />")
-    # text = markdown(text, extensions=[PythonMarkdownSlack()])
-    if "files" in message:
+    if "files" in message: # Add the images to the end
             for file in message["files"]:
                 if "image" in file["mimetype"]:
                     text += imageToHtml(file, slackClient, slackBotToken)
