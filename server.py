@@ -87,9 +87,9 @@ def teamsMessage():
     logging.info(data)
     return {'type' : 'message', 'text' : 'This is a reply'}
 
-# Verifys for slack that this URL is valid
+# Verification for slack that this URL is valid
 @slackEventAdapter.on("url_verification")
-def challengeResponse():
+def challengeResponse(eventData):
     if request.json["type"] == "url_verification":
         return {"challenge" : request.json["challenge"]}
 

@@ -14,7 +14,7 @@ import json
 
 slackdown.LIST_DELIMITERS.clear() # Stops lists being converted
 
-def format(message: str, slackClient):
+def formatSlackdown(message: str, slackClient):
     message = sf.mentionToName(message = message, slackClient = slackClient) # Mentions and emoticons must be converted before HTML
     message = emoji_data_python.replace_colons(message)
     message = slackdown.render(message) # Convert to HTML first as it is easier to parse than markdown.
@@ -114,4 +114,4 @@ block```
 
 print(sampleText)
 print("===================")
-print(format(sampleText, slackApp.client))
+print(formatSlackdown(sampleText, slackApp.client))
