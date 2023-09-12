@@ -5,9 +5,6 @@
 
 import hashlib
 import hmac
-import base64git
-import logging
-import json
 import time
 
 
