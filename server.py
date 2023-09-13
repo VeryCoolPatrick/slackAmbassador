@@ -49,7 +49,7 @@ def mentionEvent(eventData):
             headers = {"Content-Type": "application/json"},
             timeout=60
         )
-    slackApp.client.chat_postMessage(text = f"Teams can see this thread, say hi!\n`{response.headers['messageId']}`", thread_ts = message["ts"], channel = channelId)
+    slackApp.client.chat_postMessage(text = f"Teams can see this thread, say hi!\n`{response.json['messageId']}`", thread_ts = message["ts"], channel = channelId)
     return 
 
 # If a slack message is a reply to one forwarded to teams the reply is also sent to teams
