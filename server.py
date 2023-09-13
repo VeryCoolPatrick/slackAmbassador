@@ -6,7 +6,6 @@
 # config.py stores any insecure configuration but this is hardly used and could probably be removed.
 ########################################################################################################
 
-from config import *
 import os
 from dotenv import load_dotenv
 import logging
@@ -25,7 +24,7 @@ flaskApp = Flask("__name__")
 slackEventAdapter = SlackEventAdapter(os.environ.get("SLACK_SIGNING_SECRET"), "/slack/", flaskApp)
 
 slackApp = slack_bolt.App(token = os.environ.get("SLACK_BOT_TOKEN"), signing_secret = os.environ.get("SLACK_SIGNING_SECRET"))
-channelId = sf.getSlackChannelId(slackApp.client, SLACK_CHANNEL)
+channelId = sf.getSlackChannelId(slackApp.client, os.environ.get("SLACK_CHANNEL"))
 botId = slackApp.client.auth_test()["user_id"]
 
 # When the bot is mentioned a reply is given containing the id of the message forwarded to teams
@@ -49,7 +48,7 @@ def mentionEvent(eventData):
             headers = {"Content-Type": "application/json"},
             timeout=60
         )
-    slackApp.client.chat_postMessage(text = f"Teams can see this thread, say hi!\n`{response.json()['messageId']}`", thread_ts = message["ts"], channel = channelId)
+    slackApp.client.chat_postMessage(text = f"Teams can see this thread, say hi!\n`{response.json['messageId']}`", thread_ts = message["ts"], channel = channelId)
     return 
 
 # If a slack message is a reply to one forwarded to teams the reply is also sent to teams
