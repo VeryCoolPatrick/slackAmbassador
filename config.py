@@ -1,2 +1,0 @@
-SLACK_CHANNEL = "test-channel"
-OLDEST_THREAD_HOURS = 24
