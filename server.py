@@ -1,6 +1,6 @@
 ########################################################################################################
 # This script starts a flask server to communicate with slack and teams.
-# It uses the slack bolt APIs and the slack event addaper to make events like mentions more convinient.
+# It uses the slack bolt APIs and the slack event adapter to make events like mentions more convenient.
 # Communication with ms teams is done through simple http requests.
 # Webhooks and keys are stored as environmental variables in .env .
 # config.py stores any insecure configuration but this is hardly used and could probably be removed.
@@ -78,7 +78,7 @@ def messageEvent(eventData):
         )
     return
 
-# This respons to an MS Teams outgoing webhhook
+# This response to an MS Teams outgoing webhook
 @flaskApp.route("/teams/", methods = ["POST"])
 @msteams_verify.verify_hmac(os.environ.get("TEAMS_OUTGOING_TOKEN"))
 def teamsMessage():

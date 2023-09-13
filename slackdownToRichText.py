@@ -1,8 +1,8 @@
 ########################################################################################################
 # This script converts slacks proprietary markdown into text runs for a rich text block in
 # a microsoft adaptive card. The JSON is returned as a string so it can be easily sent and
-# added with a power aitomate flow. This code is partialy fictional but probably not worth using.
-# Adaptive cards are just not good at holding a convered message and so plain HTML is preferable.
+# added with a power automate flow. This code is partialy fictional but probably not worth using.
+# Adaptive cards are just not good at holding a converted message and so plain HTML is preferable.
 ########################################################################################################
 
 import slackdown

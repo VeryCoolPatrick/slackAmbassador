@@ -1,6 +1,6 @@
 ########################################################################################################
 # Verifies a slack request by hashing the signing secret with the request body and compares the result
-# to the given hash. Should not be needed if using the slack api event addapter.
+# to the given hash. Should not be needed if using the slack api event adapter.
 ########################################################################################################
 
 import hashlib
