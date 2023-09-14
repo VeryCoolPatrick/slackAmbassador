@@ -7,10 +7,8 @@ Currently only Messages from Slack to Teams is implemented however it would poss
 
 ## Use
 The Bot is a activated by @mentioning the bot in a slack message. The bot will respond with a message confirming it has been activated and saving the ID of the teams message. From then on all new messages in the thread will also be posted on Teams.
-|   |   |
-|---|---|
 |![Slack message screenshot](images/slackScreen.png)|![Teams message screenshot](images/teamsScreen.png)|
-
+|---|---|
 ## Formatting Messages
 
 Slack messages are formatted using a proprietary form of markdown. Teams messages support standard markdown and a subset of HTML (not CSS).
